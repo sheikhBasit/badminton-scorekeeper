@@ -16,6 +16,7 @@ badminton-scorekeeper/
   src/shuttle_tracker.py   # Stage 3: shuttlecock tracking via TrackNetV3
   src/speed.py             # Stage 4: shot speed + shot segmentation + overlay
   src/scoring.py           # Stage 5: rally detection + scoring + scoreboard
+  src/demo.py              # Stage 7: full combined render (all overlays, one pass)
   docs/PLAN.md             # full build plan
 ```
 
@@ -25,6 +26,7 @@ badminton-scorekeeper/
 - [x] Stage 3: shuttle tracking (TrackNetV3 adapter) — `ShuttleTracker` / `shuttle.json`
 - [x] Stage 4: shot speed — `src/speed.py` → `speed.mp4` + `speeds.csv` + `shots.json`
 - [x] Stage 5: scoring (semi-auto) — `src/scoring.py` → `scored.mp4` + `rallies.json` + `score_log.json`
+- [x] Stage 7: full combined render — `src/demo.py` → `demo.mp4` (players + shuttle + speed + score)
 
 ## Run on Kaggle
 
@@ -132,6 +134,18 @@ Rules: rally-point to 21, win by 2, cap 30, best of 3. The auto winner guess
 (shuttle landing in a side's half => other side scores) is a heuristic — net shots,
 lets, and out calls will need manual correction in `rallies.json`. That's why
 scoring is semi-automatic, not fully automatic.
+
+### Stage 7 — full combined demo (one command)
+After you have `court.npz` (Stage 2) and `shuttle.json` (Stage 3):
+```python
+!python src/demo.py --source /kaggle/working/match.mp4 \
+        --shuttle /kaggle/working/shuttle.json --court /kaggle/working/court.npz \
+        --output /kaggle/working/demo.mp4 --unit mps
+from IPython.display import Video; Video("/kaggle/working/demo.mp4", embed=True, width=480)
+```
+This renders players (boxes + IDs + traces) + shuttle (marker + trail + speed +
+SMASH) + scoreboard in a single pass — the full Girsta-style output. Add
+`--winners-file rallies.json` to use your corrected rally winners.
 
 ## Push this repo to GitHub (for `git clone` on Kaggle)
 ```bash
