@@ -14,6 +14,7 @@ badminton-scorekeeper/
   src/pipeline.py          # Stage 1: players + tracking + overlay
   src/calibrate_court.py   # Stage 2: court homography (pixels -> metres)
   src/shuttle_tracker.py   # Stage 3: shuttlecock tracking via TrackNetV3
+  src/speed.py             # Stage 4: shot speed + shot segmentation + overlay
   docs/PLAN.md             # full build plan
 ```
 
@@ -21,7 +22,7 @@ badminton-scorekeeper/
 - [x] Stage 1: player detection + tracking + overlay
 - [x] Stage 2: court calibration (homography) — `CourtMapper` ready for speed
 - [x] Stage 3: shuttle tracking (TrackNetV3 adapter) — `ShuttleTracker` / `shuttle.json`
-- [ ] Stage 4: shot speed (uses `CourtMapper.speed_kmh`)
+- [x] Stage 4: shot speed — `src/speed.py` → `speed.mp4` + `speeds.csv` + `shots.json`
 - [ ] Stage 5: scoring
 
 ## Run on Kaggle
@@ -98,6 +99,18 @@ TrackNetV3 needs its repo + pretrained weights (one-time setup):
 ```
 `shuttle.json` + `court.npz` are the two inputs Stage 4 combines into shot speed
 (`CourtMapper.speed_kmh(prev_xy, xy, dt)` per frame).
+
+### Stage 4 — shot speed
+```python
+!python src/speed.py --source /kaggle/working/match.mp4 \
+        --shuttle /kaggle/working/shuttle.json --court /kaggle/working/court.npz \
+        --output /kaggle/working/speed.mp4 --unit mps
+from IPython.display import Video; Video("/kaggle/working/speed.mp4", embed=True, width=480)
+# also writes speeds.csv (per-frame) and shots.json (peak speed per shot)
+```
+Speed assumes the shuttle is near the court plane — it's a live-readout estimate,
+not certified. A side-on, zoomed, fixed camera minimises the error. Use `--unit kmh`
+for km/h. Outliers above ~470 km/h are auto-rejected as detection noise.
 
 ## Push this repo to GitHub (for `git clone` on Kaggle)
 ```bash
