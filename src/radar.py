@@ -71,7 +71,11 @@ def main():
     ap.add_argument("--output", default="radar.mp4")
     ap.add_argument("--model", default="yolo11n.pt")
     ap.add_argument("--conf", type=float, default=0.3)
-    ap.add_argument("--court-margin", type=float, default=2.0)
+    ap.add_argument("--court-margin", type=float, default=1.0)
+    ap.add_argument("--one-per-half", action="store_true", default=True,
+                    help="singles: keep the largest detection in each court half")
+    ap.add_argument("--all-players", dest="one_per_half", action="store_false",
+                    help="doubles/keep-all: disable one-per-half filtering")
     ap.add_argument("--side-by-side", action="store_true")
     args = ap.parse_args()
 
@@ -114,13 +118,26 @@ def main():
             model(frame, conf=args.conf, device=device, verbose=False)[0])
         det = det[det.class_id == PERSON_CLASS_ID]
         det = filter_to_court(det, mapper, args.court_margin)
+        if args.one_per_half and len(det):
+            # singles: keep the largest detection in each court half (drops
+            # same-half line judges; keeps one real player per side).
+            feet_m = mapper.to_metres(
+                np.column_stack([(det.xyxy[:, 0] + det.xyxy[:, 2]) / 2.0, det.xyxy[:, 3]]))
+            areas = (det.xyxy[:, 2] - det.xyxy[:, 0]) * (det.xyxy[:, 3] - det.xyxy[:, 1])
+            keep = []
+            for half in (feet_m[:, 1] < COURT_L_M / 2, feet_m[:, 1] >= COURT_L_M / 2):
+                idxs = np.where(half)[0]
+                if len(idxs):
+                    keep.append(idxs[np.argmax(areas[idxs])])
+            if keep:
+                det = det[np.array(keep)]
         det = tracker.update_with_detections(det)
 
         if len(det):
             feet = np.column_stack([(det.xyxy[:, 0] + det.xyxy[:, 2]) / 2.0,
                                     det.xyxy[:, 3]])
             mets = mapper.to_metres(feet)
-            for tid, m in zip(det.tracker_id, mets):
+            for tid, m, box, ft in zip(det.tracker_id, mets, det.xyxy, feet):
                 p = to_canvas(m)
                 trails[int(tid)].append(p)
                 color = FAR_COLOR if m[1] < COURT_L_M / 2 else NEAR_COLOR
@@ -129,6 +146,14 @@ def main():
                     cv2.line(radar, tr[j - 1], tr[j], color, 2)
                 cv2.circle(radar, p, 9, color, -1)
                 cv2.circle(radar, p, 11, (255, 255, 255), 1)
+                cv2.putText(radar, f"#{int(tid)}", (p[0] + 12, p[1]),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+                if args.side_by_side:  # diagnostic: box + feet + id on broadcast
+                    x1, y1, x2, y2 = box.astype(int)
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+                    cv2.circle(frame, (int(ft[0]), int(ft[1])), 4, (0, 0, 255), -1)
+                    cv2.putText(frame, f"#{int(tid)} ({m[0]:.1f},{m[1]:.1f})m",
+                                (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 1)
 
         if idx in shuttle:
             sp = mapper.to_metres([[shuttle[idx]["x"], shuttle[idx]["y"]]])[0]
