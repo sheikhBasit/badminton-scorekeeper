@@ -28,6 +28,7 @@ import torch
 from ultralytics import YOLO
 
 from calibrate_court import CourtMapper
+from pipeline import filter_to_court
 from speed import compute_speeds, segment_shots, shot_peak_lookup, load_shuttle, SMASH_MPS
 from scoring import (load_all_shuttle, detect_rallies, guess_winner,
                      build_timeline, draw_scoreboard)
@@ -46,6 +47,10 @@ def main():
     ap.add_argument("--conf", type=float, default=0.3)
     ap.add_argument("--unit", choices=["mps", "kmh"], default="mps")
     ap.add_argument("--fps", type=float, default=0.0)
+    ap.add_argument("--court-margin", type=float, default=2.0,
+                    help="metres of slack around the court when filtering players")
+    ap.add_argument("--no-court-filter", action="store_true",
+                    help="disable filtering players to the court region")
     args = ap.parse_args()
 
     info = sv.VideoInfo.from_video_path(args.source)
@@ -97,6 +102,8 @@ def main():
         det = sv.Detections.from_ultralytics(
             model(frame, conf=args.conf, device=device, verbose=False)[0])
         det = det[det.class_id == PERSON_CLASS_ID]
+        if not args.no_court_filter:
+            det = filter_to_court(det, mapper, args.court_margin)
         det = tracker.update_with_detections(det)
         out = box.annotate(frame.copy(), det)
         out = label_ann.annotate(out, det, [f"#{t}" for t in det.tracker_id])

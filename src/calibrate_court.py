@@ -61,6 +61,16 @@ class CourtMapper:
         out = cv2.perspectiveTransform(pts, self.H)
         return out.reshape(-1, 2)
 
+    def contains(self, pts, margin_m=0.0):
+        """Boolean mask: which pixel pts map inside the court (+margin metres).
+
+        Used to reject off-court people (crowd, coaches, line judges, umpire).
+        """
+        m = self.to_metres(pts)
+        x, y = m[:, 0], m[:, 1]
+        return ((x >= -margin_m) & (x <= COURT_W_M + margin_m) &
+                (y >= -margin_m) & (y <= COURT_L_M + margin_m))
+
     def speed_kmh(self, px_a, px_b, dt_seconds):
         """Real-world speed of an object moving px_a -> px_b over dt seconds."""
         if dt_seconds <= 0:
