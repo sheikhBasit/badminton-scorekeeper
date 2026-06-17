@@ -25,3 +25,7 @@ third_party/TrackNetV3/
 
 # os
 .DS_Store
+_work/
+_kg_dataset/
+_kg_kernel/
+_kg_out/
