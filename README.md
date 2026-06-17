@@ -6,6 +6,57 @@ overlay tracking, measure shot speed, keep score. Full plan in [`docs/PLAN.md`](
 Compute: **Kaggle** free GPU (T4/P100). Input: an **online badminton match** pulled
 with `yt-dlp` (no manual upload). Local CPU works only for short tests.
 
+## Architecture
+
+```mermaid
+flowchart TD
+    V["match.mp4<br/>(yt-dlp clip)"]
+
+    subgraph S1["Stage 1 · pipeline.py"]
+        P["YOLOv11 + ByteTrack<br/>player boxes / IDs / traces"]
+    end
+    subgraph S2["Stage 2 · calibrate_court.py"]
+        C["4 court corners → homography<br/>CourtMapper (px → metres)"]
+        CN[("court.npz")]
+    end
+    subgraph S3["Stage 3 · shuttle_tracker.py"]
+        T["TrackNetV3<br/>shuttle (x, y) per frame"]
+        SJ[("shuttle.json")]
+    end
+    subgraph S4["Stage 4 · speed.py"]
+        SP["speed = Δmetres / Δt<br/>+ shot segmentation"]
+        SO[("speeds.csv<br/>shots.json")]
+    end
+    subgraph S5["Stage 5 · scoring.py"]
+        SC["detect rallies + winner<br/>BadmintonMatch rules"]
+        RJ[("rallies.json<br/>score_log.json")]
+    end
+    subgraph S7["Stage 7 · demo.py"]
+        D["combine all overlays<br/>(single render pass)"]
+        DM[("demo.mp4")]
+    end
+
+    V --> P
+    V --> C --> CN
+    V --> T --> SJ
+    CN --> SP
+    SJ --> SP --> SO
+    CN --> SC
+    SJ --> SC --> RJ
+    V --> D
+    P -.-> D
+    CN --> D
+    SJ --> D
+    SO --> D
+    RJ --> D
+    D --> DM
+```
+
+Three things are computed once from the video — **players** (live in the render),
+**court homography** (`court.npz`), and the **shuttle track** (`shuttle.json`).
+Speed and scoring are pure functions of those two artifacts, and Stage 7 fuses
+everything into one annotated video.
+
 ## Layout
 ```
 badminton-scorekeeper/
