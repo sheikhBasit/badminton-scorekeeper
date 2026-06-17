@@ -15,6 +15,7 @@ badminton-scorekeeper/
   src/calibrate_court.py   # Stage 2: court homography (pixels -> metres)
   src/shuttle_tracker.py   # Stage 3: shuttlecock tracking via TrackNetV3
   src/speed.py             # Stage 4: shot speed + shot segmentation + overlay
+  src/scoring.py           # Stage 5: rally detection + scoring + scoreboard
   docs/PLAN.md             # full build plan
 ```
 
@@ -23,7 +24,7 @@ badminton-scorekeeper/
 - [x] Stage 2: court calibration (homography) — `CourtMapper` ready for speed
 - [x] Stage 3: shuttle tracking (TrackNetV3 adapter) — `ShuttleTracker` / `shuttle.json`
 - [x] Stage 4: shot speed — `src/speed.py` → `speed.mp4` + `speeds.csv` + `shots.json`
-- [ ] Stage 5: scoring
+- [x] Stage 5: scoring (semi-auto) — `src/scoring.py` → `scored.mp4` + `rallies.json` + `score_log.json`
 
 ## Run on Kaggle
 
@@ -111,6 +112,26 @@ from IPython.display import Video; Video("/kaggle/working/speed.mp4", embed=True
 Speed assumes the shuttle is near the court plane — it's a live-readout estimate,
 not certified. A side-on, zoomed, fixed camera minimises the error. Use `--unit kmh`
 for km/h. Outliers above ~470 km/h are auto-rejected as detection noise.
+
+### Stage 5 — scoring (semi-automatic)
+```python
+# Pass 1: detect rallies + auto-guess winners from landing half, render + write rallies.json
+!python src/scoring.py --source /kaggle/working/match.mp4 \
+        --shuttle /kaggle/working/shuttle.json --court /kaggle/working/court.npz \
+        --output /kaggle/working/scored.mp4
+```
+Open `rallies.json`, fix any wrong `"winner"` ("A"/"B") values, then:
+```python
+# Pass 2: re-render with corrected winners
+!python src/scoring.py --source /kaggle/working/match.mp4 \
+        --shuttle /kaggle/working/shuttle.json --court /kaggle/working/court.npz \
+        --winners-file rallies.json --output /kaggle/working/scored.mp4
+from IPython.display import Video; Video("/kaggle/working/scored.mp4", embed=True, width=480)
+```
+Rules: rally-point to 21, win by 2, cap 30, best of 3. The auto winner guess
+(shuttle landing in a side's half => other side scores) is a heuristic — net shots,
+lets, and out calls will need manual correction in `rallies.json`. That's why
+scoring is semi-automatic, not fully automatic.
 
 ## Push this repo to GitHub (for `git clone` on Kaggle)
 ```bash

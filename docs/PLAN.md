@@ -91,8 +91,8 @@ tap a key for who won). ~90% of the visual wow for ~10% of the effort.
 3. [x] Court calibration script (4 corners → save homography) — `src/calibrate_court.py`
 4. [x] Integrate TrackNetV3 for shuttle tracking — `src/shuttle_tracker.py` + `setup_tracknet.sh`
 5. [x] Add speed estimation via homography — `src/speed.py` (per-frame speed, shot segmentation, overlay)
-6. [ ] Add semi-automatic scoring state machine
-7. [ ] Polish overlay (score box, speed readout, traces)
+6. [x] Add semi-automatic scoring state machine — `src/scoring.py` (rules + rally detection + scoreboard)
+7. [ ] Polish: merge player + speed + scoreboard overlays into one render pass
 
 Repo: `/home/aoi/Desktop/mnt/muaaz/badminton-scorekeeper/`
 Compute: Kaggle GPU. Source: online badminton match via `yt-dlp` (see README), not a local file.
