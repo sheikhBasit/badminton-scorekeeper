@@ -1,0 +1,8 @@
+# Core pipeline (Stage 1: players + overlay)
+ultralytics>=8.3.0      # YOLOv11 + bundled ByteTrack
+supervision>=0.25.0     # annotators, detections, video utils
+opencv-python>=4.10.0
+numpy>=1.26.0
+
+# torch is preinstalled on Kaggle GPU images; install locally only if needed:
+# torch torchvision --index-url https://download.pytorch.org/whl/cu121

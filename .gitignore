@@ -1,0 +1,27 @@
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# model weights (download separately — see README)
+*.pt
+*.pth
+*.tar
+weights/
+
+# data & outputs
+*.mp4
+*.avi
+*.csv
+court.npz
+court_*.jpg
+out*.mp4
+runs/
+
+# vendored third-party code (cloned at setup time)
+third_party/TrackNetV3/
+
+# os
+.DS_Store
