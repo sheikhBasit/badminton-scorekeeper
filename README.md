@@ -49,12 +49,10 @@ Use a **fixed broadcast/side camera** clip (whole court visible, camera doesn't 
 calibration assumes the court doesn't move.
 
 ```python
-# Cell 3 — get the repo's code into the notebook
-# Option A: clone if you've pushed this repo to GitHub:
-#   !git clone https://github.com/<you>/badminton-scorekeeper && cd badminton-scorekeeper
-# Option B: upload src/pipeline.py and src/calibrate_court.py as a Kaggle dataset/utility
-#   script and import, or just paste the two files into cells.
-import sys; sys.path.append("/kaggle/working/badminton-scorekeeper/src")
+# Cell 3 — clone the repo and work from inside it
+!git clone https://github.com/sheikhBasit/badminton-scorekeeper
+%cd badminton-scorekeeper
+# all later cells assume the repo root as the working dir
 ```
 
 ### Stage 1 — players + overlay
@@ -106,10 +104,10 @@ TrackNetV3 needs its repo + pretrained weights (one-time setup):
 # from the repo root, after committing:
 gh repo create badminton-scorekeeper --public --source . --remote origin --push
 # or manually:
-git remote add origin https://github.com/<you>/badminton-scorekeeper.git
+git remote add origin https://github.com/sheikhBasit/badminton-scorekeeper.git
 git push -u origin main
 ```
-Then in the Kaggle notebook: `!git clone https://github.com/<you>/badminton-scorekeeper`.
+Then in the Kaggle notebook: `!git clone https://github.com/sheikhBasit/badminton-scorekeeper`.
 
 ## Run locally (CPU test / interactive calibration)
 ```bash
