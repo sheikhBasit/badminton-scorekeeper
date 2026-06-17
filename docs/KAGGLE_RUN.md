@@ -24,8 +24,14 @@ The only manual step is reading the 4 court corners off a frame (Cell 5).
 !yt-dlp "ytsearch1:badminton singles full match broadcast" \
     -f "mp4[height<=720]/best[height<=720]" \
     --download-sections "*60-72" --force-keyframes-at-cuts \
-    -o /kaggle/working/match.mp4
-print("clip:", __import__("os").path.getsize("/kaggle/working/match.mp4"), "bytes")
+    -o /kaggle/working/raw.mp4
+# IMPORTANT: re-encode to clean H.264 yuv420p. yt-dlp section-cuts can produce a
+# container that cv2.VideoCapture / TrackNetV3 read as 0 frames. This fixes it.
+!ffmpeg -y -i /kaggle/working/raw.mp4 -c:v libx264 -pix_fmt yuv420p -r 30 -an \
+    /kaggle/working/match.mp4 -loglevel error
+import cv2; c=cv2.VideoCapture("/kaggle/working/match.mp4"); n=0
+while c.read()[0]: n+=1
+print("match.mp4 frames readable by cv2:", n)   # must be > 0
 ```
 
 ### Cell 4 — Stage 1: players + overlay (sanity check)
@@ -58,9 +64,11 @@ display(Image("court_topdown.jpg"))   # must look like a clean rectangle
 ```python
 # clone TrackNetV3 + download weights (single Google-Drive zip -> ckpts/)
 !bash setup_tracknet.sh third_party/TrackNetV3
-# install TrackNetV3's own deps if it ships a requirements file
-!test -f third_party/TrackNetV3/requirements.txt && \
-    pip -q install -r third_party/TrackNetV3/requirements.txt || echo "no req file"
+# TrackNetV3 imports pycocotools + parse but doesn't list them as pip names.
+# DO NOT `pip install -r third_party/TrackNetV3/requirements.txt` -- it pins
+# torch==1.10.0 / numpy==1.22.4 and will downgrade & break Kaggle's GPU stack.
+# Install ONLY the two missing modules on top of Kaggle's existing torch:
+!pip -q install pycocotools parse
 ```
 ```python
 !python src/shuttle_tracker.py --source /kaggle/working/match.mp4 \
@@ -103,7 +111,11 @@ from IPython.display import Video; Video("/kaggle/working/demo.mp4", embed=True,
   Check `python third_party/TrackNetV3/predict.py --help`; the adapter's CSV finder
   (`src/shuttle_tracker.py` `_find_csv`) accepts `<stem>_ball.csv`, `<stem>.csv`, or
   any `.csv` in the save dir — adjust if needed.
-- **Crowd/umpire get boxed as players** — known: broadcast footage. Stage 1 doesn't
-  yet filter to the court region (planned: use `CourtMapper` to keep only people
-  whose feet map inside the court). Use a fixed full-court / amateur clip to minimise.
+- **Crowd/umpire get boxed as players** — broadcast footage. The court filter is
+  built in: `demo.py` filters to the court by default (it has `--court`), and
+  `pipeline.py` filters when you pass `--court /kaggle/working/court.npz`. Tune
+  `--court-margin` (metres) if real players get cut or crowd slips through.
+- **`predict.py` CUDA error on a CPU box** — only if you run without a GPU.
+  TrackNetV3 hard-codes `.cuda()`; on Kaggle's GPU it's fine. For CPU, patch the
+  clone: `sed -i 's/\.cuda()/.cpu()/g; s/torch.load(\(args[^)]*\))/torch.load(\1, map_location="cpu")/' third_party/TrackNetV3/predict.py`.
 - **`court_topdown.jpg` looks skewed** — re-read corners in Cell 5, redo Cell 6.
