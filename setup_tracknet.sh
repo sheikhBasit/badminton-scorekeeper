@@ -15,12 +15,21 @@ fi
 
 pip -q install gdown || true
 
-# Pretrained weights are hosted on the TrackNetV3 GitHub Releases / Google Drive.
-# Their README lists the current download links — check it if these IDs change:
-#   https://github.com/qaz812345/TrackNetV3#-pretrained-weights
-# Example (replace FILE_ID with the IDs from their README):
-#   gdown --id <TRACKNET_FILE_ID> -O "$DEST/TrackNet_best.pt"
-#   gdown --id <INPAINTNET_FILE_ID> -O "$DEST/InpaintNet_best.pt"
+# Pretrained weights: a single zip on Google Drive -> unzips to ckpts/.
+# (id from the TrackNetV3 README; update if upstream changes the link.)
+CKPT_DIR="$DEST/ckpts"
+if [ ! -f "$CKPT_DIR/TrackNet_best.pt" ]; then
+  echo "[setup] downloading TrackNetV3 weights zip"
+  gdown 1CfzE87a0f6LhBp0kniSl1-89zaLCZ8cA -O "$DEST/TrackNetV3_ckpts.zip"
+  ( cd "$DEST" && unzip -o TrackNetV3_ckpts.zip )
+fi
 
-echo "[setup] clone done. Now place TrackNet_best.pt and InpaintNet_best.pt in $DEST"
-echo "        (see weight links in $DEST/README.md), then run src/shuttle_tracker.py"
+if [ -f "$CKPT_DIR/TrackNet_best.pt" ]; then
+  echo "[setup] ready: $CKPT_DIR/{TrackNet_best.pt,InpaintNet_best.pt}"
+  echo "        run: python src/shuttle_tracker.py --source match.mp4 \\"
+  echo "             --repo $DEST --tracknet-ckpt ckpts/TrackNet_best.pt \\"
+  echo "             --inpaint-ckpt ckpts/InpaintNet_best.pt --out shuttle.json"
+else
+  echo "[setup] WARN: weights not found. Download manually from the link in"
+  echo "        $DEST/README.md, unzip into $CKPT_DIR/, then run shuttle_tracker.py"
+fi

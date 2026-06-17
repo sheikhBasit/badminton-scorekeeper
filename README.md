@@ -79,6 +79,10 @@ badminton-scorekeeper/
 - [x] Stage 5: scoring (semi-auto) — `src/scoring.py` → `scored.mp4` + `rallies.json` + `score_log.json`
 - [x] Stage 7: full combined render — `src/demo.py` → `demo.mp4` (players + shuttle + speed + score)
 
+> **Full end-to-end run:** see [`docs/KAGGLE_RUN.md`](docs/KAGGLE_RUN.md) for a
+> complete, ordered set of Kaggle notebook cells (all stages, GPU). The sections
+> below explain each stage individually.
+
 ## Run on Kaggle
 
 1. **New Notebook** → Settings → Accelerator = **GPU T4**, and **Internet = ON**
