@@ -48,10 +48,13 @@ LANDING_MARGIN_M = 0.6  # how far outside the court a point still counts as "in 
 class BadmintonMatch:
     """Rally-point scoring: to 21, win by 2, hard cap 30, best of 3 games."""
 
-    def __init__(self, target=21, cap=30, win_by=2, games_to_win=2, first_server="A"):
+    def __init__(self, target=21, cap=30, win_by=2, games_to_win=2, first_server="A",
+                 initial_score=None):
         self.target, self.cap, self.win_by = target, cap, win_by
         self.games_to_win = games_to_win
-        self.score = {"A": 0, "B": 0}
+        # initial_score lets a clip start mid-game (e.g. the broadcast was already
+        # at 13-9 when our window begins) so the overlay matches the real match.
+        self.score = dict(initial_score) if initial_score else {"A": 0, "B": 0}
         self.games = {"A": 0, "B": 0}
         self.server = first_server
         self.game_no = 1
@@ -157,7 +160,8 @@ def guess_winner(rally, mapper):
     return "B" if near_half else "A"
 
 
-def draw_scoreboard(frame, snap):
+def draw_scoreboard(frame, snap, names=None):
+    names = names or {"A": "A", "B": "B"}
     h, w = frame.shape[:2]
     cx = w // 2
     box_w, box_h = 360, 70
@@ -169,16 +173,16 @@ def draw_scoreboard(frame, snap):
         col = (0, 255, 255) if serving else (255, 255, 255)
         dot = " *" if serving else ""
         cv2.putText(frame, f"{label}{dot}", (x, y0 + 28),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, col, 2)
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, col, 1)
         cv2.putText(frame, f"{score}", (x, y0 + 58),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.9, col, 2)
         cv2.putText(frame, f"(g{games})", (x + 40, y0 + 58),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, col, 1)
 
-    side("A", snap["a"], snap["games_a"], snap["server"] == "A", x0 + 20)
+    side(names["A"], snap["a"], snap["games_a"], snap["server"] == "A", x0 + 12)
     cv2.putText(frame, "-", (cx - 6, y0 + 56), cv2.FONT_HERSHEY_SIMPLEX, 0.9,
                 (255, 255, 255), 2)
-    side("B", snap["b"], snap["games_b"], snap["server"] == "B", x0 + box_w - 110)
+    side(names["B"], snap["b"], snap["games_b"], snap["server"] == "B", x0 + box_w - 120)
 
     banner = None
     if snap["match_over"]:
@@ -191,9 +195,9 @@ def draw_scoreboard(frame, snap):
     return frame
 
 
-def build_timeline(rallies, total_frames):
+def build_timeline(rallies, total_frames, initial_score=None, first_server="A"):
     """frame index -> scoreboard snapshot in effect at that frame."""
-    match = BadmintonMatch()
+    match = BadmintonMatch(first_server=first_server, initial_score=initial_score)
     log = []
     # snapshot before any point
     snaps = [(0, match.snapshot(event="start"))]
