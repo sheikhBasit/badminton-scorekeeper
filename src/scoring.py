@@ -37,9 +37,12 @@ import supervision as sv
 from calibrate_court import CourtMapper, COURT_L_M
 
 # rally detection tuning
-MERGE_GAP = 12          # invisible frames within this are still the same rally
-MIN_RALLY_FRAMES = 8    # spans shorter than this are noise, not rallies
-MIN_RALLY_TRAVEL = 80   # min pixel travel for a span to count as a rally
+MERGE_GAP = 22          # invisible frames within this are still the same rally
+                        # (TrackNetV3 routinely drops the shuttle for ~0.5s
+                        # mid-rally; must exceed that or one rally splits in two)
+MIN_RALLY_FRAMES = 20   # spans shorter than this are noise, not rallies
+MIN_RALLY_TRAVEL = 120  # min pixel travel for a span to count as a rally
+LANDING_MARGIN_M = 0.6  # how far outside the court a point still counts as "in play"
 
 
 class BadmintonMatch:
@@ -126,14 +129,31 @@ def detect_rallies(pts):
             "start_frame": fs[0],
             "end_frame": fs[-1],
             "landing_px": [float(xy[-1, 0]), float(xy[-1, 1])],
+            "track_px": xy.tolist(),
         })
     return rallies
 
 
-def guess_winner(landing_px, mapper):
+def estimate_landing(track_px, mapper):
+    """Best guess at where the shuttle came down, in metres.
+
+    The raw last visible point is unreliable (TrackNetV3 often loses the shuttle
+    when it's lofted high and out of frame, leaving a 'landing' at the frame top).
+    So restrict to points that are actually inside the court, and take the last
+    one of those -- that's far closer to the real landing than the last point
+    overall.
+    """
+    pts = np.asarray(track_px, dtype=float)
+    inside = mapper.contains(pts, margin_m=LANDING_MARGIN_M)
+    cand = mapper.to_metres(pts[inside]) if inside.any() else mapper.to_metres(pts)
+    return cand[-1]
+
+
+def guess_winner(rally, mapper):
     """Heuristic: shuttle landing in a side's half => the OTHER side won."""
-    y_m = float(mapper.to_metres([landing_px])[0, 1])
-    near_half = y_m < COURT_L_M / 2          # 'A' defends the near (top) half
+    track = rally.get("track_px") or [rally["landing_px"]]
+    land = estimate_landing(track, mapper)
+    near_half = land[1] < COURT_L_M / 2      # 'A' defends the near (top) half
     return "B" if near_half else "A"
 
 
@@ -213,9 +233,12 @@ def main():
         pts = load_all_shuttle(args.shuttle)
         rallies = detect_rallies(pts)
         for r in rallies:
-            r["winner"] = guess_winner(r["landing_px"], mapper)
+            r["winner"] = guess_winner(r, mapper)
+        # keep rallies.json compact + hand-editable: track_px was only needed
+        # for the landing estimate above.
+        editable = [{k: v for k, v in r.items() if k != "track_px"} for r in rallies]
         with open("rallies.json", "w") as f:
-            json.dump(rallies, f, indent=2)
+            json.dump(editable, f, indent=2)
         print(f"[info] detected {len(rallies)} rallies -> rallies.json "
               "(edit 'winner' fields, then rerun with --winners-file rallies.json)")
 
