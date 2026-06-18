@@ -21,6 +21,7 @@ from ultralytics import YOLO
 
 from calibrate_court import CourtMapper, COURT_W_M, COURT_L_M
 from pipeline import filter_to_court, PERSON_CLASS_ID
+from scoring import draw_scoreboard
 
 PPM = 34          # radar pixels per court metre
 MARGIN = 26       # border around the court (px)
@@ -110,6 +111,10 @@ def main():
     model = YOLO(args.model)
     tracker = sv.ByteTrack()
     trails = defaultdict(lambda: deque(maxlen=TRAIL))
+    sh_history: deque = deque(maxlen=9)  # (idx, x, y) — smoothed speed window
+    last_speed_kmh = None
+    last_sh_idx = -1
+    SPEED_DECAY = int(info.fps * 2)  # hide speed after 2s without shuttle
 
     rw, rh = court_dims()
     out_w = info.width + rw if args.side_by_side else rw
@@ -165,8 +170,30 @@ def main():
                                 (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 1)
 
         if idx in shuttle:
-            sp = mapper.to_metres([[shuttle[idx]["x"], shuttle[idx]["y"]]])[0]
+            sx, sy = float(shuttle[idx]["x"]), float(shuttle[idx]["y"])
+            sp = mapper.to_metres([[sx, sy]])[0]
             cv2.circle(radar, to_canvas(sp), 5, SHUTTLE_COLOR, -1)
+            if args.side_by_side:
+                cv2.circle(frame, (int(sx), int(sy)), 7, SHUTTLE_COLOR, -1)
+                cv2.circle(frame, (int(sx), int(sy)), 9, (255, 255, 255), 1)
+            sh_history.append((idx, sx, sy))
+            last_sh_idx = idx
+            if len(sh_history) >= 3:
+                fi, fx, fy = sh_history[0]
+                li, lx, ly = sh_history[-1]
+                dt = (li - fi) / info.fps
+                if dt > 0:
+                    kmh = mapper.speed_kmh((fx, fy), (lx, ly), dt)
+                    if 5 <= kmh < 500:
+                        last_speed_kmh = kmh
+
+        if args.side_by_side and last_speed_kmh is not None:
+            if idx - last_sh_idx < SPEED_DECAY:
+                spd = f"{last_speed_kmh:.0f} km/h"
+                cv2.putText(frame, spd, (10, info.height - 15),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 0), 3)
+                cv2.putText(frame, spd, (10, info.height - 15),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.75, SHUTTLE_COLOR, 2)
 
         if timeline is not None:
             s = timeline.get(idx, timeline.get(info.total_frames - 1))
@@ -177,6 +204,8 @@ def main():
                         0.42, (0, 0, 0), 3)
             cv2.putText(radar, txt, (8, 16), cv2.FONT_HERSHEY_SIMPLEX,
                         0.42, (255, 255, 255), 1)
+            if args.side_by_side:
+                draw_scoreboard(frame, s, names=names)
 
         if args.side_by_side:
             canvas = np.zeros((out_h, out_w, 3), np.uint8)
