@@ -77,6 +77,10 @@ def main():
     ap.add_argument("--all-players", dest="one_per_half", action="store_false",
                     help="doubles/keep-all: disable one-per-half filtering")
     ap.add_argument("--side-by-side", action="store_true")
+    ap.add_argument("--init-score", help="seed a mid-game score, e.g. '13,9' (A,B)")
+    ap.add_argument("--first-server", default="A", choices=["A", "B"])
+    ap.add_argument("--name-a", default="A")
+    ap.add_argument("--name-b", default="B")
     args = ap.parse_args()
 
     mapper = CourtMapper.load(args.court)
@@ -91,11 +95,17 @@ def main():
         shuttle = {int(k): v for k, v in raw.items() if v.get("visible")}
 
     timeline = None
+    names = {"A": args.name_a, "B": args.name_b}
     if args.winners_file:
         import json
         from scoring import build_timeline
         rallies = json.load(open(args.winners_file))
-        timeline, _ = build_timeline(rallies, info.total_frames)
+        init = None
+        if args.init_score:
+            a, b = (int(x) for x in args.init_score.split(","))
+            init = {"A": a, "B": b}
+        timeline, _ = build_timeline(rallies, info.total_frames,
+                                     initial_score=init, first_server=args.first_server)
 
     model = YOLO(args.model)
     tracker = sv.ByteTrack()
@@ -160,9 +170,13 @@ def main():
 
         if timeline is not None:
             s = timeline.get(idx, timeline.get(info.total_frames - 1))
-            txt = f"A {s['a']} - {s['b']} B"
-            cv2.putText(radar, txt, (MARGIN, 18), cv2.FONT_HERSHEY_SIMPLEX,
-                        0.55, (255, 255, 255), 2)
+            sa = "*" if s["server"] == "A" else " "
+            sb = "*" if s["server"] == "B" else " "
+            txt = f"{names['A']}{sa}{s['a']} - {s['b']}{sb}{names['B']}"
+            cv2.putText(radar, txt, (8, 16), cv2.FONT_HERSHEY_SIMPLEX,
+                        0.42, (0, 0, 0), 3)
+            cv2.putText(radar, txt, (8, 16), cv2.FONT_HERSHEY_SIMPLEX,
+                        0.42, (255, 255, 255), 1)
 
         if args.side_by_side:
             canvas = np.zeros((out_h, out_w, 3), np.uint8)
