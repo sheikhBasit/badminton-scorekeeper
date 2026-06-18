@@ -104,11 +104,10 @@ def main():
     rw, rh = court_dims()
     out_w = info.width + rw if args.side_by_side else rw
     out_h = max(info.height, rh) if args.side_by_side else rh
-    writer = cv2.VideoWriter(args.output, cv2.VideoWriter_fourcc(*"avc1"),
+    # mp4v is the reliably-available encoder in this OpenCV build; re-encode to
+    # H.264 afterward with ffmpeg if browser playback is needed.
+    writer = cv2.VideoWriter(args.output, cv2.VideoWriter_fourcc(*"mp4v"),
                              info.fps, (out_w, out_h))
-    if not writer.isOpened():  # fallback if avc1 unavailable
-        writer = cv2.VideoWriter(args.output, cv2.VideoWriter_fourcc(*"mp4v"),
-                                 info.fps, (out_w, out_h))
 
     gen = sv.get_video_frames_generator(args.source)
     for idx, frame in enumerate(gen):

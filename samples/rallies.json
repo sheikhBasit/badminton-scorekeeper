@@ -1,0 +1,20 @@
+[
+  {
+    "start_frame": 0,
+    "end_frame": 119,
+    "landing_px": [
+      341.0,
+      2.0
+    ],
+    "winner": "B"
+  },
+  {
+    "start_frame": 134,
+    "end_frame": 263,
+    "landing_px": [
+      332.0,
+      356.0
+    ],
+    "winner": "A"
+  }
+]
