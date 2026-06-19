@@ -1,14 +1,16 @@
 """
-Phase 2: FastAPI server — receives camera frames, runs StreamPipeline,
-broadcasts results to display clients over WebSocket.
+FastAPI server — receives camera frames, runs StreamPipeline, broadcasts
+results to display clients over WebSocket, serves the PWA web app.
 
 Endpoints
 ---------
 POST /calibrate       — initialise CourtMapper + StreamPipeline from 4 corners
 POST /frame           — accept JPEG frame, run inference, return + broadcast JSON
-GET  /ws              — WebSocket for display clients (receive-only, push JSON)
+WS   /ws              — WebSocket for display clients (receive-only, push JSON)
 GET  /status          — health-check + current score
-GET  /                — placeholder (web app served here in Phase 3)
+GET  /history         — list saved game records
+POST /history         — save a completed game record
+GET  /                — serves webapp/index.html (the PWA)
 
 Run locally:
     uvicorn server.app:app --host 0.0.0.0 --port 8000
@@ -28,7 +30,7 @@ import cv2
 import numpy as np
 from fastapi import FastAPI, File, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 
 # make src/ importable regardless of working directory
@@ -41,6 +43,10 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
 )
+
+WEBAPP = Path(__file__).parent.parent / "webapp" / "index.html"
+HISTORY_FILE = Path(__file__).parent.parent / "data" / "history.json"
+HISTORY_FILE.parent.mkdir(exist_ok=True)
 
 # ── global state ──────────────────────────────────────────────────────────────
 _pipeline: Optional[StreamPipeline] = None
@@ -180,7 +186,24 @@ async def status():
 
 # ── / (Phase 3 will serve the web app here) ──────────────────────────────────
 
+@app.get("/history")
+async def get_history():
+    if HISTORY_FILE.exists():
+        return json.loads(HISTORY_FILE.read_text())
+    return []
+
+
+@app.post("/history")
+async def save_game(game: dict):
+    history = json.loads(HISTORY_FILE.read_text()) if HISTORY_FILE.exists() else []
+    history.insert(0, game)          # newest first
+    HISTORY_FILE.write_text(json.dumps(history, indent=2))
+    print(f"[history] saved game #{len(history)}", flush=True)
+    return {"saved": True, "total": len(history)}
+
+
 @app.get("/")
 async def root():
-    return JSONResponse({"status": "Badminton Scorekeeper API", "phase": 2,
-                         "endpoints": ["/calibrate", "/frame", "/ws", "/status"]})
+    if WEBAPP.exists():
+        return FileResponse(WEBAPP, media_type="text/html")
+    return JSONResponse({"status": "web app not built yet — run Phase 3"})
