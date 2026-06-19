@@ -169,7 +169,7 @@ input:focus,select:focus{outline:none;border-color:var(--accent)}
   </div>
 
   <div id="radar-wrap" style="position:relative">
-    <img id="video-frame" style="display:none;width:100%;height:100%;object-fit:contain;position:absolute;top:0;left:0">
+    <img id="video-frame" style="display:none;width:100%;height:100%;object-fit:contain;position:absolute;top:0;left:0;z-index:1">
     <canvas id="radar" style="position:relative;z-index:1"></canvas>
     <button id="view-toggle" onclick="toggleView()"
       style="position:absolute;top:8px;right:8px;z-index:2;background:rgba(0,0,0,.6);border:1px solid #555;color:#fff;font-size:11px;padding:4px 10px;border-radius:8px;cursor:pointer">
@@ -501,14 +501,11 @@ function onResult(r) {
   updateSpeedHud();
   drawRadar();
 
-  // live video frame
+  // live video frame — auto-switch to video on first frame
   if (r.frame_b64) {
     const img = document.getElementById('video-frame');
     img.src = 'data:image/jpeg;base64,' + r.frame_b64;
-    if (S.viewMode === 'video') {
-      img.style.display = 'block';
-      document.getElementById('radar').style.display = 'none';
-    }
+    if (S.viewMode !== 'video') toggleView();
   }
 
   // match over
