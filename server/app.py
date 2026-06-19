@@ -19,6 +19,7 @@ Run inside Kaggle / Colab kernel:
     see _kg_stream/kernel.py
 """
 import asyncio
+import base64
 import json
 import sys
 import threading
@@ -57,10 +58,80 @@ _display_clients: list[WebSocket] = []
 _executor = ThreadPoolExecutor(max_workers=1)
 
 
+# ── frame annotation ──────────────────────────────────────────────────────────
+
+_NEAR  = (38, 149, 255)   # BGR orange
+_FAR   = (60, 220, 60)    # BGR green
+_SHUT  = (255, 240, 60)   # BGR cyan
+
+def _annotate(frame: np.ndarray, result: dict) -> np.ndarray:
+    out = frame.copy()
+    h, w = out.shape[:2]
+    H_inv = None
+    if _pipeline is not None:
+        try:
+            H_inv = np.linalg.inv(_pipeline.mapper.H)
+        except Exception:
+            pass
+
+    for p in result.get("players", []):
+        color = _NEAR if p["half"] == "near" else _FAR
+        label = "A"  if p["half"] == "near" else "B"
+        if H_inv is not None:
+            pt = cv2.perspectiveTransform(
+                np.array([[[p["x_m"], p["y_m"]]]], dtype=np.float32), H_inv)[0][0]
+            px, py = int(pt[0]), int(pt[1])
+            cv2.circle(out, (px, py), 20, color, 2)
+            cv2.circle(out, (px, py), 20, (0, 0, 0), 4)
+            cv2.circle(out, (px, py), 20, color, 2)
+            cv2.putText(out, label, (px - 7, py + 7),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 4)
+            cv2.putText(out, label, (px - 7, py + 7),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+
+    sh = result.get("shuttle")
+    if sh:
+        sx, sy = int(sh["x"]), int(sh["y"])
+        cv2.circle(out, (sx, sy), 8, _SHUT, -1)
+        cv2.circle(out, (sx, sy), 10, (255, 255, 255), 1)
+
+    spd = result.get("speed_kmh")
+    if spd:
+        txt = f"{spd:.0f} km/h"
+        cv2.putText(out, txt, (10, h - 15), cv2.FONT_HERSHEY_SIMPLEX,
+                    0.8, (0, 0, 0), 4)
+        cv2.putText(out, txt, (10, h - 15), cv2.FONT_HERSHEY_SIMPLEX,
+                    0.8, _SHUT, 2)
+
+    sc = result.get("score", {})
+    name_a = sc.get("name_a", "A")
+    name_b = sc.get("name_b", "B")
+    score_txt = f"{name_a}  {sc.get('a', 0)} – {sc.get('b', 0)}  {name_b}"
+    (tw, th), _ = cv2.getTextSize(score_txt, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
+    cv2.rectangle(out, (0, 0), (tw + 16, th + 16), (0, 0, 0), -1)
+    cv2.putText(out, score_txt, (8, th + 8),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+
+    return out
+
+
+def _encode_frame(frame: np.ndarray) -> str:
+    h, w = frame.shape[:2]
+    scale = min(1.0, 640 / w)
+    if scale < 1.0:
+        frame = cv2.resize(frame, (640, int(h * scale)))
+    _, buf = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 65])
+    return base64.b64encode(buf).decode()
+
+
 # ── WebSocket broadcast ───────────────────────────────────────────────────────
 
-async def _broadcast(result: dict):
-    msg = json.dumps(result)
+async def _broadcast(result: dict, raw_frame: Optional[np.ndarray] = None):
+    payload = dict(result)
+    if raw_frame is not None and _display_clients:
+        annotated = _annotate(raw_frame, result)
+        payload["frame_b64"] = _encode_frame(annotated)
+    msg = json.dumps(payload)
     dead = []
     for ws in _display_clients:
         try:
@@ -148,7 +219,7 @@ async def process_frame(file: UploadFile = File(...)):
     result = await loop.run_in_executor(_executor, _pipeline.process, frame, idx)
     _last_result = result
 
-    await _broadcast(result)
+    await _broadcast(result, frame)
     return result
 
 

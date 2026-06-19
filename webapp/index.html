@@ -168,8 +168,13 @@ input:focus,select:focus{outline:none;border-color:var(--accent)}
     </div>
   </div>
 
-  <div id="radar-wrap">
-    <canvas id="radar"></canvas>
+  <div id="radar-wrap" style="position:relative">
+    <img id="video-frame" style="display:none;width:100%;height:100%;object-fit:contain;position:absolute;top:0;left:0">
+    <canvas id="radar" style="position:relative;z-index:1"></canvas>
+    <button id="view-toggle" onclick="toggleView()"
+      style="position:absolute;top:8px;right:8px;z-index:2;background:rgba(0,0,0,.6);border:1px solid #555;color:#fff;font-size:11px;padding:4px 10px;border-radius:8px;cursor:pointer">
+      📷 Video
+    </button>
   </div>
 
   <div id="speed-hud">
@@ -233,6 +238,7 @@ const S = {
   peakSpeed: 0,
   rallyCount: 0,
   matchStartTime: null,
+  viewMode: 'radar',   // 'radar' | 'video'
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -495,6 +501,16 @@ function onResult(r) {
   updateSpeedHud();
   drawRadar();
 
+  // live video frame
+  if (r.frame_b64) {
+    const img = document.getElementById('video-frame');
+    img.src = 'data:image/jpeg;base64,' + r.frame_b64;
+    if (S.viewMode === 'video') {
+      img.style.display = 'block';
+      document.getElementById('radar').style.display = 'none';
+    }
+  }
+
   // match over
   if (r.score?.match_over && !S.matchSaved) {
     S.matchSaved = true;
@@ -506,6 +522,22 @@ function onResult(r) {
 // ═══════════════════════════════════════════════════════════════
 // SCORE BAR
 // ═══════════════════════════════════════════════════════════════
+function toggleView() {
+  S.viewMode = S.viewMode === 'radar' ? 'video' : 'radar';
+  const btn = document.getElementById('view-toggle');
+  const img = document.getElementById('video-frame');
+  const canvas = document.getElementById('radar');
+  if (S.viewMode === 'video') {
+    img.style.display = 'block';
+    canvas.style.display = 'none';
+    btn.textContent = '📡 Radar';
+  } else {
+    img.style.display = 'none';
+    canvas.style.display = 'block';
+    btn.textContent = '📷 Video';
+  }
+}
+
 function updateScoreBar() {
   const sc = S.score;
   const na = document.getElementById('d-name-a');
