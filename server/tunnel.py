@@ -41,6 +41,12 @@ def start(port: int = 8000, token: str = None) -> str:
         )
 
     ngrok.set_auth_token(token)
+    # Kill any stale tunnels from a previous session before opening a new one.
+    try:
+        for t in ngrok.get_tunnels():
+            ngrok.disconnect(t.public_url)
+    except Exception:
+        pass
     tunnel = ngrok.connect(port, "http")
     url = tunnel.public_url.replace("http://", "https://")
     print(f"\n{'='*60}")
