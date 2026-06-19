@@ -356,7 +356,8 @@ async function calibConfirm() {
   localStorage.setItem('frameW', video.videoWidth);
   localStorage.setItem('frameH', video.videoHeight);
   await sendCalibration();
-  if (S.cameraStream) { S.cameraStream.getTracks().forEach(t => t.stop()); S.cameraStream = null; }
+  // Release calibration camera so the streaming tab can open it
+  if (video.srcObject) { video.srcObject.getTracks().forEach(t => t.stop()); video.srcObject = null; }
   connectDisplay();
   go('camera');
   document.getElementById('main-nav').style.display = 'flex';
