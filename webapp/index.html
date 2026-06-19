@@ -96,8 +96,6 @@ input:focus,select:focus{outline:none;border-color:var(--accent)}
 <div id="page-home" class="page active">
   <div class="card">
     <h2>🏸 Badminton AI Setup</h2>
-    <label>Server URL (ngrok)</label>
-    <input id="server-url" type="url" placeholder="https://abc123.ngrok-free.app" inputmode="url">
     <label>Player A name</label>
     <input id="name-a" value="Player A">
     <label>Player B name</label>
@@ -216,7 +214,7 @@ const TRAIL_LEN = 18, SMASH_KMH = 200;
 // STATE
 // ═══════════════════════════════════════════════════════════════
 const S = {
-  serverUrl: localStorage.getItem('serverUrl') || '',
+  serverUrl: window.location.origin,
   nameA: localStorage.getItem('nameA') || 'Player A',
   nameB: localStorage.getItem('nameB') || 'Player B',
   ws: null,
@@ -256,12 +254,8 @@ function go(page) {
 // HOME / SETUP
 // ═══════════════════════════════════════════════════════════════
 function doSetup() {
-  const url = document.getElementById('server-url').value.trim().replace(/\/$/, '');
-  if (!url) { alert('Enter the server URL first'); return; }
-  S.serverUrl = url;
   S.nameA = document.getElementById('name-a').value || 'Player A';
   S.nameB = document.getElementById('name-b').value || 'Player B';
-  localStorage.setItem('serverUrl', S.serverUrl);
   localStorage.setItem('nameA', S.nameA);
   localStorage.setItem('nameB', S.nameB);
   document.getElementById('main-nav').style.display = 'flex';
@@ -269,12 +263,8 @@ function doSetup() {
 }
 
 function skipCalib() {
-  const url = document.getElementById('server-url').value.trim().replace(/\/$/, '');
-  if (url) S.serverUrl = url;
-  if (!S.serverUrl) { alert('Enter server URL'); return; }
   S.nameA = document.getElementById('name-a').value || 'Player A';
   S.nameB = document.getElementById('name-b').value || 'Player B';
-  localStorage.setItem('serverUrl', S.serverUrl);
   document.getElementById('main-nav').style.display = 'flex';
   if (S.corners) {
     sendCalibration().then(() => go('display'));
@@ -741,7 +731,6 @@ function newGame() {
 // ═══════════════════════════════════════════════════════════════
 window.onload = () => {
   // pre-fill saved values
-  if (S.serverUrl) document.getElementById('server-url').value = S.serverUrl;
   if (S.nameA) document.getElementById('name-a').value = S.nameA;
   if (S.nameB) document.getElementById('name-b').value = S.nameB;
   // auto-connect display WS if we have a server URL already
