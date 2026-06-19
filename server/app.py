@@ -215,6 +215,15 @@ async def process_frame(file: UploadFile = File(...)):
     idx = _frame_idx
     _frame_idx += 1
 
+    # Drop frame if executor is still processing the previous one
+    if _executor._work_queue.qsize() > 0:
+        return {"status": "dropped", "frame": idx}
+
+    # Resize to 640px wide before inference (faster YOLO, less memory)
+    h, w = frame.shape[:2]
+    if w > 640:
+        frame = cv2.resize(frame, (640, int(h * 640 / w)))
+
     loop = asyncio.get_event_loop()
     result = await loop.run_in_executor(_executor, _pipeline.process, frame, idx)
     _last_result = result

@@ -373,7 +373,7 @@ async function sendCalibration() {
     name_a: S.nameA, name_b: S.nameB,
     init_score: `${scoreA},${scoreB}`,
     first_server: document.getElementById('first-server')?.value || 'A',
-    model: 'yolo11n.pt', conf: 0.25, court_margin: 0.4, fps: 30,
+    model: 'yolo11n.pt', conf: 0.25, court_margin: 0.4, fps: 10,
   };
   try {
     const r = await fetch(S.serverUrl + '/calibrate', {
@@ -396,7 +396,7 @@ let camVideo = null;
 async function startCamera() {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
-      video:{facingMode:'environment', width:{ideal:854}, height:{ideal:480}, frameRate:{ideal:30}},
+      video:{facingMode:'environment', width:{ideal:640}, height:{ideal:360}, frameRate:{ideal:15}},
       audio: false,
     });
     S.cameraStream = stream;
@@ -410,14 +410,15 @@ async function startCamera() {
     document.getElementById('cam-status').textContent = '🔴';
     document.getElementById('st-status').textContent = 'Streaming';
 
+    const SEND_W = 480, SEND_H = Math.round(480 * camVideo.videoHeight / camVideo.videoWidth);
     const canvas = document.createElement('canvas');
-    canvas.width = camVideo.videoWidth; canvas.height = camVideo.videoHeight;
+    canvas.width = SEND_W; canvas.height = SEND_H;
     const ctx = canvas.getContext('2d');
 
-    const FPS = 15;  // 15fps → 67ms interval; enough for scoring
+    const FPS = 10;
     S.cameraTimer = setInterval(async () => {
       if (!camVideo || camVideo.readyState < 2) return;
-      ctx.drawImage(camVideo, 0, 0);
+      ctx.drawImage(camVideo, 0, 0, SEND_W, SEND_H);
       canvas.toBlob(async blob => {
         if (!blob) return;
         const t0 = Date.now();
