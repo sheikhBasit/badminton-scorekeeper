@@ -78,7 +78,7 @@ def main():
         all_pts = load_all_shuttle(args.shuttle)
         rallies = detect_rallies(all_pts)
         for r in rallies:
-            r["winner"] = guess_winner(r["landing_px"], mapper)
+            r["winner"] = guess_winner(r, mapper)
         with open("rallies.json", "w") as f:
             json.dump(rallies, f, indent=2)
         print(f"[info] auto-detected {len(rallies)} rallies -> rallies.json "
